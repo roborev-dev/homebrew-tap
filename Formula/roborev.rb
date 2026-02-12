@@ -1,28 +1,28 @@
 class Roborev < Formula
   desc "Automatic code review daemon for git commits using AI agents"
   homepage "https://roborev.io"
-  version "0.30.0"
+  version "0.31.0"
   license "MIT"
 
   on_macos do
     if Hardware::CPU.intel?
       url "https://github.com/roborev-dev/roborev/releases/download/v#{version}/roborev_#{version}_darwin_amd64.tar.gz"
-      sha256 "0769ce8a17d02f20b3cde4362962bab8ec018d1ebb7d4cb41716617bb9084fb3"
+      sha256 "0e5f3249c8941926783b8e183039df47fc938c4a9652f26c70d219d8c667f165"
     end
     if Hardware::CPU.arm?
       url "https://github.com/roborev-dev/roborev/releases/download/v#{version}/roborev_#{version}_darwin_arm64.tar.gz"
-      sha256 "020206e9e3e24f9daf2057d918232b8984129c84ca2ed0017379f3a28a494dc6"
+      sha256 "bcda3970e1178d0c51dd7022f9c2516d197f4354e2cc5eab5fde38dbb7e38c27"
     end
   end
 
   on_linux do
     if Hardware::CPU.intel?
       url "https://github.com/roborev-dev/roborev/releases/download/v#{version}/roborev_#{version}_linux_amd64.tar.gz"
-      sha256 "648f14ebbf0669a3a98cd99c880dac054a93c90e84641f242cc6a93ef0e48dcf"
+      sha256 "6c66c22f8913d8076fc66e5cec963a93b48c8ce8d1a6b121453dd08cc3197ad4"
     end
     if Hardware::CPU.arm?
       url "https://github.com/roborev-dev/roborev/releases/download/v#{version}/roborev_#{version}_linux_arm64.tar.gz"
-      sha256 "1282ca4873528e3878511951aba6c15afcab6f69263dac81f1d6b3ec06761d2e"
+      sha256 "9a279de83f990d13aa20778e3ea7316030c1f55dc7de1143074c634ac2c7d3ac"
     end
   end
 
