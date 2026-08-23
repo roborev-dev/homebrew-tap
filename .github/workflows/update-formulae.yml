@@ -10,6 +10,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: homebrew-tap-update-formulae
+  cancel-in-progress: false
+
 jobs:
   check_existing_pull_request:
     name: Check for an open update pull request
