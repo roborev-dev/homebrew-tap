@@ -69,13 +69,13 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
-          ref: ${{ needs.check_existing_pull_request.outputs.checkout_ref }}
           persist-credentials: false
 
       - name: Set up mise
         uses: jdx/mise-action@5228313ee0372e111a38da051671ca30fc5a96db
 
       - name: Set up Homebrew
+        if: needs.check_existing_pull_request.outputs.should_publish == 'true'
         uses: Homebrew/actions/setup-homebrew@a84a03efc108f7d05469800fd48890c1cd34a6ad
         with:
           stable: true
@@ -83,18 +83,42 @@ jobs:
       - name: Check formula updater
         run: mise exec --locked -- ruby -Itest test/update_formulae_test.rb
 
+      - name: Load formulae from the open pull request
+        id: open_pull_request_formulae
+        if: needs.check_existing_pull_request.outputs.should_publish != 'true'
+        env:
+          CHECKOUT_REF: ${{ needs.check_existing_pull_request.outputs.checkout_ref }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$CHECKOUT_REF"
+          git diff --binary "$GITHUB_SHA" "$CHECKOUT_REF" -- Formula | git apply
+          echo "before=$(git diff --binary -- Formula | git hash-object --stdin)" >> "$GITHUB_OUTPUT"
+
       - name: Update formulae from latest releases
         run: mise exec --locked -- ruby scripts/update-formulae.rb
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
+      - name: Reject stale open pull request formulae
+        if: needs.check_existing_pull_request.outputs.should_publish != 'true'
+        env:
+          BEFORE: ${{ steps.open_pull_request_formulae.outputs.before }}
+        run: |
+          after=$(git diff --binary -- Formula | git hash-object --stdin)
+          if [[ "$after" != "$BEFORE" ]]; then
+            echo "Open update pull request no longer matches the current releases." >&2
+            exit 1
+          fi
+
       - name: Verify current checkout tap
+        if: needs.check_existing_pull_request.outputs.should_publish == 'true'
         run: |
           # shellcheck disable=SC2016
           ruby -e 'tap = File.realpath(`brew --repo kenn-io/tap`.strip); workspace = File.realpath(ENV.fetch("GITHUB_WORKSPACE")); abort "kenn-io/tap resolves to #{tap}, expected #{workspace}" unless tap == workspace; puts "kenn-io/tap -> #{tap}"'
 
       - name: Check formulae
-        if: ${{ hashFiles('Formula/*.rb') != '' }}
+        if: >-
+          needs.check_existing_pull_request.outputs.should_publish == 'true' &&
+          hashFiles('Formula/*.rb') != ''
         run: |
           formulae=()
           for path in Formula/*.rb; do
@@ -109,6 +133,7 @@ jobs:
 
       - name: Detect formula changes
         id: changed
+        if: needs.check_existing_pull_request.outputs.should_publish == 'true'
         run: |
           bash scripts/create-formula-patch.sh formula.patch
           if [[ -s formula.patch ]]; then
