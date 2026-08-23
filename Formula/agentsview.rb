@@ -3,6 +3,7 @@ class Agentsview < Formula
   homepage "https://agentsview.io"
   version "0.41.1"
   license "MIT"
+  revision 1
 
   on_macos do
     if Hardware::CPU.intel?
