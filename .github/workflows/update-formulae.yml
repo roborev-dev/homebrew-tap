@@ -23,7 +23,8 @@ jobs:
       contents: read
       pull-requests: read
     outputs:
-      should_run: ${{ steps.open_pull_request.outputs.should_run }}
+      checkout_ref: ${{ steps.open_pull_request.outputs.checkout_ref }}
+      should_publish: ${{ steps.open_pull_request.outputs.should_publish }}
 
     steps:
       - name: Check for an open update pull request
@@ -38,17 +39,22 @@ jobs:
             --json number \
             --jq '.[0].number // empty')
           if [[ -n "$open_pull_request" ]]; then
-            echo "Update pull request #${open_pull_request} is already open; leaving its branch unchanged."
-            echo "should_run=false" >> "$GITHUB_OUTPUT"
+            checkout_ref=$(gh pr view "$open_pull_request" \
+              --repo "$GITHUB_REPOSITORY" \
+              --json headRefOid \
+              --jq '.headRefOid')
+            echo "Update pull request #${open_pull_request} is already open; validating ${checkout_ref} without changing its branch."
+            echo "checkout_ref=${checkout_ref}" >> "$GITHUB_OUTPUT"
+            echo "should_publish=false" >> "$GITHUB_OUTPUT"
           else
-            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            echo "checkout_ref=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
           fi
 
   update:
     name: Check for new releases
     runs-on: ubuntu-latest
     needs: check_existing_pull_request
-    if: needs.check_existing_pull_request.outputs.should_run == 'true'
     permissions:
       contents: read
     outputs:
@@ -63,6 +69,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
+          ref: ${{ needs.check_existing_pull_request.outputs.checkout_ref }}
           persist-credentials: false
 
       - name: Set up mise
@@ -121,8 +128,12 @@ jobs:
   create-pull-request:
     name: Create update pull request
     runs-on: ubuntu-latest
-    needs: update
-    if: needs.update.outputs.changed == 'true'
+    needs:
+      - check_existing_pull_request
+      - update
+    if: >-
+      needs.check_existing_pull_request.outputs.should_publish == 'true' &&
+      needs.update.outputs.changed == 'true'
     permissions:
       contents: write
       pull-requests: write
