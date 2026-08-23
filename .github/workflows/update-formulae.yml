@@ -11,10 +11,40 @@ permissions:
   contents: read
 
 jobs:
+  check_existing_pull_request:
+    name: Check for an open update pull request
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      should_run: ${{ steps.open_pull_request.outputs.should_run }}
+
+    steps:
+      - name: Check for an open update pull request
+        id: open_pull_request
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          open_pull_request=$(gh pr list \
+            --repo "$GITHUB_REPOSITORY" \
+            --state open \
+            --head automation/update-formulae \
+            --json number \
+            --jq '.[0].number // empty')
+          if [[ -n "$open_pull_request" ]]; then
+            echo "Update pull request #${open_pull_request} is already open; leaving its branch unchanged."
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+          fi
+
   update:
     name: Check for new releases
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    needs: check_existing_pull_request
+    if: needs.check_existing_pull_request.outputs.should_run == 'true'
     permissions:
       contents: read
     outputs:
