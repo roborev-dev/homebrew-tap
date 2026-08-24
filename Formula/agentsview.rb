@@ -3,15 +3,16 @@ class Agentsview < Formula
   homepage "https://agentsview.io"
   version "0.41.1"
   license "MIT"
+  revision 1
 
   on_macos do
     if Hardware::CPU.intel?
       url "https://github.com/kenn-io/agentsview/releases/download/v0.41.1/agentsview_0.41.1_darwin_amd64.tar.gz"
-      sha256 "67458c9f7e4bfb55e279f879c91b27746d47a2f6f06854cc9866adfba6ded312"
+      sha256 "b9300f893dce4912cf65f849553b0f33f2e5021baba858b5fb9847af3017ad98"
     end
     if Hardware::CPU.arm?
       url "https://github.com/kenn-io/agentsview/releases/download/v0.41.1/agentsview_0.41.1_darwin_arm64.tar.gz"
-      sha256 "cc955d13033a6aaf8d317913e6130b8f203fa925c44c2646cf91f60ed4d480d3"
+      sha256 "f0c8bde6d32596b87cd8b6f99a770ae866e8512979d4d2b701426b3ede37a92c"
     end
   end
 

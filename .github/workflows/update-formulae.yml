@@ -10,11 +10,51 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: homebrew-tap-update-formulae
+  cancel-in-progress: false
+
 jobs:
+  check_existing_pull_request:
+    name: Check for an open update pull request
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      checkout_ref: ${{ steps.open_pull_request.outputs.checkout_ref }}
+      should_publish: ${{ steps.open_pull_request.outputs.should_publish }}
+
+    steps:
+      - name: Check for an open update pull request
+        id: open_pull_request
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          open_pull_request=$(gh api --method GET \
+            "repos/$GITHUB_REPOSITORY/pulls" \
+            -f state=open \
+            -f base=main \
+            -f "head=$GITHUB_REPOSITORY_OWNER:automation/update-formulae" \
+            --jq "map(select(.head.repo.full_name == \"$GITHUB_REPOSITORY\"))[0].number // empty")
+          if [[ -n "$open_pull_request" ]]; then
+            checkout_ref=$(gh pr view "$open_pull_request" \
+              --repo "$GITHUB_REPOSITORY" \
+              --json headRefOid \
+              --jq '.headRefOid')
+            echo "Update pull request #${open_pull_request} is already open; validating ${checkout_ref} without changing its branch."
+            echo "checkout_ref=${checkout_ref}" >> "$GITHUB_OUTPUT"
+            echo "should_publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "checkout_ref=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
   update:
     name: Check for new releases
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    needs: check_existing_pull_request
     permissions:
       contents: read
     outputs:
@@ -35,6 +75,7 @@ jobs:
         uses: jdx/mise-action@5228313ee0372e111a38da051671ca30fc5a96db
 
       - name: Set up Homebrew
+        if: needs.check_existing_pull_request.outputs.should_publish == 'true'
         uses: Homebrew/actions/setup-homebrew@a84a03efc108f7d05469800fd48890c1cd34a6ad
         with:
           stable: true
@@ -42,18 +83,43 @@ jobs:
       - name: Check formula updater
         run: mise exec --locked -- ruby -Itest test/update_formulae_test.rb
 
+      - name: Load formulae from the open pull request
+        id: open_pull_request_formulae
+        if: needs.check_existing_pull_request.outputs.should_publish != 'true'
+        env:
+          CHECKOUT_REF: ${{ needs.check_existing_pull_request.outputs.checkout_ref }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$CHECKOUT_REF"
+          git diff --binary "$GITHUB_SHA" "$CHECKOUT_REF" -- Formula | git apply
+          git add --intent-to-add -- Formula/*.rb
+          echo "before=$(git diff --binary -- Formula | git hash-object --stdin)" >> "$GITHUB_OUTPUT"
+
       - name: Update formulae from latest releases
         run: mise exec --locked -- ruby scripts/update-formulae.rb
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
+      - name: Reject stale open pull request formulae
+        if: needs.check_existing_pull_request.outputs.should_publish != 'true'
+        env:
+          BEFORE: ${{ steps.open_pull_request_formulae.outputs.before }}
+        run: |
+          after=$(git diff --binary -- Formula | git hash-object --stdin)
+          if [[ "$after" != "$BEFORE" ]]; then
+            echo "Open update pull request no longer matches the current releases." >&2
+            exit 1
+          fi
+
       - name: Verify current checkout tap
+        if: needs.check_existing_pull_request.outputs.should_publish == 'true'
         run: |
           # shellcheck disable=SC2016
           ruby -e 'tap = File.realpath(`brew --repo kenn-io/tap`.strip); workspace = File.realpath(ENV.fetch("GITHUB_WORKSPACE")); abort "kenn-io/tap resolves to #{tap}, expected #{workspace}" unless tap == workspace; puts "kenn-io/tap -> #{tap}"'
 
       - name: Check formulae
-        if: ${{ hashFiles('Formula/*.rb') != '' }}
+        if: >-
+          needs.check_existing_pull_request.outputs.should_publish == 'true' &&
+          hashFiles('Formula/*.rb') != ''
         run: |
           formulae=()
           for path in Formula/*.rb; do
@@ -68,6 +134,7 @@ jobs:
 
       - name: Detect formula changes
         id: changed
+        if: needs.check_existing_pull_request.outputs.should_publish == 'true'
         run: |
           bash scripts/create-formula-patch.sh formula.patch
           if [[ -s formula.patch ]]; then
@@ -87,8 +154,12 @@ jobs:
   create-pull-request:
     name: Create update pull request
     runs-on: ubuntu-latest
-    needs: update
-    if: needs.update.outputs.changed == 'true'
+    needs:
+      - check_existing_pull_request
+      - update
+    if: >-
+      needs.check_existing_pull_request.outputs.should_publish == 'true' &&
+      needs.update.outputs.changed == 'true'
     permissions:
       contents: write
       pull-requests: write

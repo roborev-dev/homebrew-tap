@@ -179,6 +179,27 @@ class UpdateFormulaeTest < Minitest::Test
     assert_includes formula, 'assert_match version.to_s, shell_output("#{bin}/roborev version")'
   end
 
+  def test_same_version_asset_drift_is_rejected_instead_of_rewritten
+    agentsview = FORMULAE.find { |config| config.name == "agentsview" }
+    assets = synthetic_assets(agentsview, "0.31.1")
+
+    Dir.mktmpdir("formula-drift-test") do |directory|
+      formula_path = File.join(directory, "agentsview.rb")
+      File.write(formula_path, render_formula(agentsview, "0.31.1", assets))
+
+      verify_current_formula_assets!(agentsview, formula_path, "0.31.1", assets)
+
+      drifted = assets.transform_values(&:dup)
+      drifted.fetch(:darwin_arm64)[:sha256] = "b" * 64
+      error = assert_raises(RuntimeError) do
+        verify_current_formula_assets!(agentsview, formula_path, "0.31.1", drifted)
+      end
+
+      assert_match "agentsview 0.31.1 assets changed after the formula was recorded", error.message
+      assert_match "darwin_arm64", error.message
+    end
+  end
+
   private
 
   def kata_config

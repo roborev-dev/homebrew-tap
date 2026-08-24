@@ -259,16 +259,51 @@ def render_formula(config, version, assets)
   formula
 end
 
+def current_formula_asset_digests(config, path, version)
+  expected_filenames = PLATFORMS.to_h do |platform, _metadata|
+    [artifact_filename(config, version, platform), platform]
+  end
+  digests = {}
+  formula = File.read(path)
+  formula.scan(/^\s*url\s+"([^"]+)"\s*$\n^\s*sha256\s+"([0-9a-fA-F]{64})"\s*$/) do |url, sha256|
+    filename = File.basename(URI(url).path)
+    platform = expected_filenames[filename]
+    next unless platform
+
+    raise "Formula #{path} contains duplicate #{platform} assets" if digests.key?(platform)
+
+    digests[platform] = sha256.downcase
+  end
+  digests
+end
+
+def verify_current_formula_assets!(config, path, version, release_assets)
+  actual = current_formula_asset_digests(config, path, version)
+  changed = PLATFORMS.keys.select do |platform|
+    actual[platform] != release_assets.fetch(platform).fetch(:sha256).downcase
+  end
+  return if changed.empty?
+
+  raise "#{config.name} #{version} assets changed after the formula was recorded: #{changed.join(", ")}; " \
+        "refusing to rewrite an existing version"
+end
+
 def run
   updated = []
 
   FORMULAE.each do |config|
     release = fetch_json("https://api.github.com/repos/#{config.repo}/releases/latest")
     installed_version = current_version(config.path)
-    next unless release_action(config, release, installed_version) == :update
+    action = release_action(config, release, installed_version)
+    next if action == :ignore
 
     latest_version = release_version(release.fetch("tag_name"))
     assets = release_assets_by_platform(config, release, latest_version)
+    if action == :current
+      verify_current_formula_assets!(config, config.path, latest_version, assets)
+      next
+    end
+
     File.write(config.path, render_formula(config, latest_version, assets))
     updated << "#{config.name} #{installed_version || "not installed"} -> #{latest_version}"
   end
