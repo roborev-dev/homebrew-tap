@@ -91,6 +91,7 @@ jobs:
         run: |
           git fetch --no-tags --depth=1 origin "$CHECKOUT_REF"
           git diff --binary "$GITHUB_SHA" "$CHECKOUT_REF" -- Formula | git apply
+          git add --intent-to-add -- Formula/*.rb
           echo "before=$(git diff --binary -- Formula | git hash-object --stdin)" >> "$GITHUB_OUTPUT"
 
       - name: Update formulae from latest releases
