@@ -32,12 +32,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          open_pull_request=$(gh pr list \
-            --repo "$GITHUB_REPOSITORY" \
-            --state open \
-            --head automation/update-formulae \
-            --json number \
-            --jq '.[0].number // empty')
+          open_pull_request=$(gh api --method GET \
+            "repos/$GITHUB_REPOSITORY/pulls" \
+            -f state=open \
+            -f base=main \
+            -f "head=$GITHUB_REPOSITORY_OWNER:automation/update-formulae" \
+            --jq "map(select(.head.repo.full_name == \"$GITHUB_REPOSITORY\"))[0].number // empty")
           if [[ -n "$open_pull_request" ]]; then
             checkout_ref=$(gh pr view "$open_pull_request" \
               --repo "$GITHUB_REPOSITORY" \
