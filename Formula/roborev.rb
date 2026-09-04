@@ -1,28 +1,28 @@
 class Roborev < Formula
   desc "Automatic code review daemon for git commits using AI agents"
   homepage "https://roborev.io"
-  version "0.66.0"
+  version "0.67.0"
   license "MIT"
 
   on_macos do
     if Hardware::CPU.intel?
-      url "https://github.com/kenn-io/roborev/releases/download/v0.66.0/roborev_0.66.0_darwin_amd64.tar.gz"
-      sha256 "99a1a4c4a9782426cf64810beaf8929281541fc574825849233015e2dcf09f45"
+      url "https://github.com/kenn-io/roborev/releases/download/v0.67.0/roborev_0.67.0_darwin_amd64.tar.gz"
+      sha256 "b10d14f1fada231636e5e76628e0a2a01a85a8f96a7f0352089e69faad935b67"
     end
     if Hardware::CPU.arm?
-      url "https://github.com/kenn-io/roborev/releases/download/v0.66.0/roborev_0.66.0_darwin_arm64.tar.gz"
-      sha256 "eb6e68b2a1a86343f6147045ab124b7b49496c3c17afbea4b70990280b9817d7"
+      url "https://github.com/kenn-io/roborev/releases/download/v0.67.0/roborev_0.67.0_darwin_arm64.tar.gz"
+      sha256 "28e3b84eb8e0d6f81a306c7c1f75c953954c192de2d99a47a8fe46c6ee93b090"
     end
   end
 
   on_linux do
     if Hardware::CPU.intel?
-      url "https://github.com/kenn-io/roborev/releases/download/v0.66.0/roborev_0.66.0_linux_amd64.tar.gz"
-      sha256 "3a57bda163559cf9b9062a3808c0979c4b46853ff712681d2160d676e2ea098a"
+      url "https://github.com/kenn-io/roborev/releases/download/v0.67.0/roborev_0.67.0_linux_amd64.tar.gz"
+      sha256 "68ba22c586813bd55797973cb176157fa36936b02db2d4bee46bbd499bffbb87"
     end
     if Hardware::CPU.arm?
-      url "https://github.com/kenn-io/roborev/releases/download/v0.66.0/roborev_0.66.0_linux_arm64.tar.gz"
-      sha256 "371accc17a7afa1e38f10ac7e2e0540681cdcd5d73bdfb670e51cc24d225862f"
+      url "https://github.com/kenn-io/roborev/releases/download/v0.67.0/roborev_0.67.0_linux_arm64.tar.gz"
+      sha256 "ef5a13f480ece9c3bfdfa070259ba66ad83d72bbd466484fac512c0af0a41a02"
     end
   end
 
